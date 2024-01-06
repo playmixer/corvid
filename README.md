@@ -152,6 +152,15 @@ OPENWEATHER_API_KEY={api key}
 ```
 
 ## Добавить умный выключатель Tuya
+```env
+TUYA_MSG_HOST=pulsar+ssl://mqe.tuyaeu.com:7285/
+TUYA_API_HOST=https://openapi.tuyaeu.com
+TUYA_ACCESS_ID={access_id}
+TUYA_ACCESS_KEY={access_key}
+TUYA_APP_NAME={app_name}
+TUYA_DEBUG=0
+```
+
 ```golang
 	...
 	assistent.AddGenCommand(smarty.ObjectCommand{
