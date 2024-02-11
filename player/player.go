@@ -3,7 +3,6 @@ package player
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -68,9 +67,9 @@ func playstream(ctx context.Context, streamer beep.StreamSeekCloser, format beep
 
 	select {
 	case <-done:
-		fmt.Println("done playstream")
+		// log.Println("done playstream")
 	case <-ctx.Done():
 		speaker.Close()
-		fmt.Println("cancel playstream")
+		// log.Println("cancel playstream")
 	}
 }
