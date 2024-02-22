@@ -102,6 +102,15 @@ func (l *Listener) SetMicrophon(name string) error {
 	return ErrNotFoundDevice
 }
 
+func CreateRecorder(deviceId int) *pvrecorder.PvRecorder {
+
+	return &pvrecorder.PvRecorder{
+		DeviceIndex:         deviceId,
+		FrameLength:         512,
+		BufferedFramesCount: 10,
+	}
+}
+
 func (l *Listener) Start(ctx context.Context) {
 	go func() {
 		l.service.Lock()
@@ -115,11 +124,7 @@ func (l *Listener) Start(ctx context.Context) {
 		flag.Parse()
 		l.log.DEBUG(fmt.Sprintf(l.NameApp+": pvrecorder.go version: %s", pvrecorder.Version))
 
-		recorder := &pvrecorder.PvRecorder{
-			DeviceIndex:         l.DeviceId,
-			FrameLength:         512,
-			BufferedFramesCount: 10,
-		}
+		recorder := CreateRecorder(l.DeviceId)
 
 		l.log.DEBUG(l.NameApp + ": Initializing...")
 		if err := recorder.Init(); err != nil {
@@ -194,6 +199,7 @@ func (l *Listener) Start(ctx context.Context) {
 				pcm, err := recorder.Read()
 				if err != nil {
 					l.log.ERROR(fmt.Sprintf(l.NameApp+": Error: %s.\n", err.Error()))
+					recorder = CreateRecorder(l.DeviceId)
 				}
 				if outputWav != nil {
 					for _, f := range pcm {

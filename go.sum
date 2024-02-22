@@ -81,6 +81,8 @@ github.com/paul-mannino/go-fuzzywuzzy v0.0.0-20200127021948-54652b135d0e/go.mod 
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/playmixer/corvid/logger v0.0.0-20240217123114-4526ec009859 h1:U1ioaut4XLZYHXhjbRCH0aj9+vOTURmvsb77AHxPULU=
+github.com/playmixer/corvid/logger v0.0.0-20240217123114-4526ec009859/go.mod h1:mXIgRlppBx7p2Sf2ZLOq31jZAmgtIPFhuhml1AJQCA4=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=

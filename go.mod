@@ -11,6 +11,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/moutend/go-wav v0.0.0-20170820031854-56127fbbb7ba
 	github.com/paul-mannino/go-fuzzywuzzy v0.0.0-20200127021948-54652b135d0e
+	github.com/playmixer/corvid/logger v0.0.0-20240217123114-4526ec009859
 	github.com/tuya/tuya-connector-go v1.0.5
 	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc
 )
