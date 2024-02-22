@@ -326,14 +326,6 @@ func (a *Assiser) MatchCommand(talk string) (index int, params map[string]string
 func (a *Assiser) prepareCommand(talk string) string {
 	talk = strings.ToLower(talk)
 	splitTalk := strings.Split(talk, " ")
-	for i := range splitTalk {
-		//заменяем числа слова на цифры
-		for k, v := range digitWords {
-			if splitTalk[i] == k {
-				splitTalk[i] = v
-			}
-		}
-	}
 
 	//удаляем имя из команды
 	arrCommand := []string{}

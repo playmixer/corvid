@@ -16,22 +16,6 @@ import (
 	smarthome "github.com/playmixer/corvid/smart-home"
 )
 
-var (
-	digitWords = map[string]string{
-		"восемьдесят": "80",
-		"десять":      "10",
-		"двадцать":    "20",
-		"тридцать":    "30",
-		"сорок":       "40",
-		"пятьдесят":   "50",
-		"шестьдесят":  "60",
-		"семьдесят":   "70",
-		"девяносто":   "90",
-		"сто":         "100",
-		"ноль":        "0",
-	}
-)
-
 type CommandTool struct {
 	f    func(ctx context.Context, a *Assiser, path string, args []string, ct *CommandTool) error
 	temp string
@@ -46,7 +30,7 @@ var Tools = map[string]CommandTool{
 
 	"system.volume":       {f: SystemVolume, temp: ""},
 	"system.volume.param": {f: SystemSetVolume, temp: ""},
-	"system.time":         {f: SystemTime, temp: "Текущее время: {time}"},
+	"system.time":         {f: SystemTime, temp: "Текущее время {time}"},
 
 	"smarthome.tuya.switch": {f: SmartTuyaSwitch, temp: ""},
 }
@@ -183,7 +167,7 @@ func SmartTuyaSwitch(ctx context.Context, a *Assiser, path string, args []string
 
 func SystemTime(ctx context.Context, a *Assiser, path string, args []string, ct *CommandTool) error {
 	if ct.temp != "" {
-		txt := strings.ReplaceAll(ct.temp, "{time}", time.Now().Format("15:04"))
+		txt := strings.ReplaceAll(ct.temp, "{time}", time.Now().Format("15 04"))
 		a.Print(txt)
 		err := a.Voice(ctx, txt)
 		if err != nil {
