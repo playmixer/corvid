@@ -447,7 +447,7 @@ waitFor:
 					}
 					log.INFO("Вы сказали: " + translateText)
 					a.userSaid(translateText)
-					a.runCommand(translateText)
+					a.RunCommand(translateText)
 				}
 				if emptyMessageCounter > CMD_MAX_EMPTY_MESSAGE && !isListenName {
 					isListenName = true
