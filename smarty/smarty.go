@@ -195,7 +195,7 @@ func (a *Assiser) AddCommand(cmd []string, f CommandFunc) {
 	})
 }
 
-func (a *Assiser) runCommand(cmd string) {
+func (a *Assiser) RunCommand(cmd string) {
 	a.Lock()
 	defer a.Unlock()
 	i, found := a.ComparingCommand(cmd)
