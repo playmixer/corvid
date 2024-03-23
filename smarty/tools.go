@@ -16,6 +16,16 @@ import (
 	smarthome "github.com/playmixer/corvid/smart-home"
 )
 
+type TypeTool string
+
+const (
+	ToolWeather        TypeTool = "weather.current"
+	ToolSysVolume      TypeTool = "system.volume"
+	ToolSysVolumeParam TypeTool = "system.volume.param"
+	ToolSysTime        TypeTool = "system.time"
+	ToolTuyaSwitch     TypeTool = "smarthome.tuya.switch"
+)
+
 type CommandTool struct {
 	f    func(ctx context.Context, a *Assiser, path string, args []string, ct *CommandTool) error
 	temp string
@@ -25,23 +35,23 @@ func (ct *CommandTool) Run(ctx context.Context, a *Assiser, path string, args []
 	return ct.f(ctx, a, path, args, ct)
 }
 
-var Tools = map[string]CommandTool{
-	"weather.current": {f: WeatherCurrent, temp: "Текущая температура {temp}, {descriptions}"},
+var Tools = map[TypeTool]CommandTool{
+	ToolWeather: {f: WeatherCurrent, temp: "Текущая температура {temp}, {descriptions}"},
 
-	"system.volume":       {f: SystemVolume, temp: ""},
-	"system.volume.param": {f: SystemSetVolume, temp: ""},
-	"system.time":         {f: SystemTime, temp: "Текущее время {time}"},
+	ToolSysVolume:      {f: SystemVolume, temp: ""},
+	ToolSysVolumeParam: {f: SystemSetVolume, temp: ""},
+	ToolSysTime:        {f: SystemTime, temp: "Текущее время {time}"},
 
-	"smarthome.tuya.switch": {f: SmartTuyaSwitch, temp: ""},
+	ToolTuyaSwitch: {f: SmartTuyaSwitch, temp: ""},
 }
 
 /**
 * создаем команду для запуска tools
 **/
 func (a *Assiser) newCommandTool(pathFile string, args []string) CommandFunc {
-	if _, ok := Tools[pathFile]; ok {
+	if _, ok := Tools[TypeTool(pathFile)]; ok {
 		return func(ctx context.Context, a *Assiser) {
-			if v, ok := Tools[pathFile]; ok {
+			if v, ok := Tools[TypeTool(pathFile)]; ok {
 				err := v.Run(a.ctx, a, pathFile, args)
 				if err != nil {
 					a.log.ERROR(err.Error())
