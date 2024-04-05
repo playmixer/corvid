@@ -77,8 +77,10 @@ type CommandStruct struct {
 }
 
 type Config struct {
-	Names         []string
-	ListenTimeout time.Duration
+	Names           []string
+	ListenLongTime  time.Duration
+	LenWavBuf       int
+	MaxEmptyMessage int
 }
 
 type IReacognize interface {
@@ -105,8 +107,11 @@ type Assiser struct {
 	ctx              context.Context
 	log              iLogger
 	Names            []string
-	ListenTimeout    time.Duration
+	listenLongTime   time.Duration
+	lenWavBuf        int
+	maxEmptyMessage  int
 	commands         map[string]*CommandStruct
+	muCmd            sync.Mutex
 	eventChan        chan AssiserEvent
 	recognizeCommand IReacognize
 	recognizeName    IReacognize
@@ -121,12 +126,15 @@ type Assiser struct {
 func New(ctx context.Context) *Assiser {
 
 	a := &Assiser{
-		log:           &logger{},
-		ctx:           ctx,
-		Names:         []string{"альфа", "alpha"},
-		ListenTimeout: time.Second * 2,
-		commands:      map[string]*CommandStruct{},
-		eventChan:     make(chan AssiserEvent, 1),
+		log:             &logger{},
+		ctx:             ctx,
+		Names:           []string{"альфа", "alpha"},
+		listenLongTime:  time.Second * 2,
+		lenWavBuf:       LEN_WAV_BUFF,
+		maxEmptyMessage: CMD_MAX_EMPTY_MESSAGE,
+		commands:        map[string]*CommandStruct{},
+		muCmd:           sync.Mutex{},
+		eventChan:       make(chan AssiserEvent, 1),
 		voice: AssitentVoice{
 			Enable:      true,
 			ErrorEnable: true,
@@ -154,7 +162,7 @@ func (a *Assiser) GetRecorder() *listen.Listener {
 func (a *Assiser) addWavToBuf(w *wavBuffer) *[]wavBuffer {
 	a.Lock()
 	defer a.Unlock()
-	a.wavBuffer = append([]wavBuffer{*w}, a.wavBuffer[:LEN_WAV_BUFF-1]...)
+	a.wavBuffer = append([]wavBuffer{*w}, a.wavBuffer[:a.lenWavBuf-1]...)
 
 	return &a.wavBuffer
 }
@@ -163,7 +171,7 @@ func (a *Assiser) GetWavFromBuf(count int) []byte {
 	a.Lock()
 	defer a.Unlock()
 	result := *a.wavBuffer[0].buf
-	for i := 1; i <= count && i <= LEN_WAV_BUFF && i < len(a.wavBuffer); i++ {
+	for i := 1; i <= count && i <= a.lenWavBuf && i < len(a.wavBuffer); i++ {
 		if a.wavBuffer[i].buf != nil {
 			result = listen.ConcatWav(*a.wavBuffer[i].buf, result)
 		}
@@ -373,7 +381,10 @@ func (a *Assiser) ComparingCommand(talk string) (index string, found bool) {
 
 func (a *Assiser) SetConfig(cfg Config) {
 	a.Names = cfg.Names
-	a.ListenTimeout = cfg.ListenTimeout
+	a.listenLongTime = cfg.ListenLongTime
+	// a.lenWavBuf = cfg.LenWavBuf
+	a.wavBuffer = make([]wavBuffer, cfg.LenWavBuf)
+	a.maxEmptyMessage = cfg.MaxEmptyMessage
 }
 
 func (a *Assiser) SetLogger(log iLogger) {
@@ -405,7 +416,7 @@ func (a *Assiser) Start() {
 
 	// слушаем имя 1ый поток
 	log.INFO("Starting listen. Stram #1 ")
-	a.recorder = listen.New(a.ListenTimeout)
+	a.recorder = listen.New(a.listenLongTime)
 	a.recorder.SetName("Record")
 	a.recorder.SetLogger(log)
 	a.recorder.Start(ctx)
@@ -453,7 +464,7 @@ waitFor:
 					a.userSaid(translateText)
 					a.RunCommand(translateText)
 				}
-				if emptyMessageCounter > CMD_MAX_EMPTY_MESSAGE && !isListenName {
+				if emptyMessageCounter > a.maxEmptyMessage && !isListenName {
 					isListenName = true
 					a.PostSignalEvent(AEStartListeningName)
 				}

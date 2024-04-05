@@ -18,6 +18,8 @@ func main() {
 	log.LogLevel = logger.INFO
 
 	recognizer := voskclient.New()
+	recognizer.Host = "192.168.0.2"
+	recognizer.Port = "2700"
 	recognizer.SetLogger(log)
 
 	assistent := smarty.New(ctx)
@@ -25,8 +27,10 @@ func main() {
 	assistent.SetRecognizeName(recognizer)
 	assistent.SetLogger(log)
 	assistent.SetConfig(smarty.Config{
-		Names:         []string{"альфа", "бета", "бэта"},
-		ListenTimeout: time.Second * 1,
+		Names:           []string{"альфа", "бета", "бэта"},
+		ListenLongTime:  time.Second / 2,
+		LenWavBuf:       40,
+		MaxEmptyMessage: 40,
 	})
 
 	// Голосовые команды

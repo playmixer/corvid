@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/playmixer/corvid/smarty"
 )
@@ -331,4 +332,36 @@ func TestMatchCommand(t *testing.T) {
 		}
 		fmt.Println("case #", i, v.talks, params)
 	}
+}
+
+func TestDelete(t *testing.T) {
+
+	ctx := context.TODO()
+	recognize := &rcgnz{}
+	assist = smarty.New(ctx)
+	assist.SetRecognizeCommand(recognize)
+	assist.SetRecognizeName(recognize)
+
+	id := ""
+	id = assist.AddCommand([]string{"тест"}, func(ctx context.Context, a *smarty.Assiser) {
+		defer func() {
+			if id != "" {
+				c, _ := a.GetCommand(id)
+				go func() {
+					for {
+						if !c.IsActive {
+							a.DeleteCommand(id)
+							fmt.Println("deleted", id)
+							break
+						}
+						time.Sleep(time.Millisecond * 100)
+					}
+				}()
+			}
+		}()
+	})
+
+	assist.RunCommand("тест")
+	time.Sleep(time.Second * 3)
+	fmt.Println(assist.GetCommands())
 }
