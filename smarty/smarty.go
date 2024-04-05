@@ -106,7 +106,7 @@ type Assiser struct {
 	log              iLogger
 	Names            []string
 	ListenTimeout    time.Duration
-	commands         []CommandStruct
+	commands         map[string]*CommandStruct
 	eventChan        chan AssiserEvent
 	recognizeCommand IReacognize
 	recognizeName    IReacognize
@@ -125,7 +125,7 @@ func New(ctx context.Context) *Assiser {
 		ctx:           ctx,
 		Names:         []string{"альфа", "alpha"},
 		ListenTimeout: time.Second * 2,
-		commands:      make([]CommandStruct, 0),
+		commands:      map[string]*CommandStruct{},
 		eventChan:     make(chan AssiserEvent, 1),
 		voice: AssitentVoice{
 			Enable:      true,
@@ -188,11 +188,13 @@ func (a *Assiser) GetCommands() [][]string {
 	return result
 }
 
-func (a *Assiser) AddCommand(cmd []string, f CommandFunc) {
-	a.commands = append(a.commands, CommandStruct{
+func (a *Assiser) AddCommand(cmd []string, f CommandFunc) string {
+	id := RandStringRunes(20) + "_" + time.Now().Format(time.RFC3339Nano)
+	a.commands[id] = &CommandStruct{
 		Commands: cmd,
 		Func:     f,
-	})
+	}
+	return id
 }
 
 func (a *Assiser) RunCommand(cmd string) {
@@ -205,20 +207,22 @@ func (a *Assiser) RunCommand(cmd string) {
 		a.log.DEBUG("Run command", cmd)
 		a.PostSignalEvent(AEApplyCommand)
 		ctx, cancel := context.WithCancel(a.ctx)
-		a.commands[i].Context = ctx
-		a.commands[i].Cancel = cancel
-		go func() {
-			a.commands[i].IsActive = true
-			a.commands[i].Func(ctx, a)
-			a.commands[i].IsActive = false
-			a.commands[i].Cancel()
-		}()
+		if _, ok := a.commands[i]; ok {
+			a.commands[i].Context = ctx
+			a.commands[i].Cancel = cancel
+			go func() {
+				a.commands[i].IsActive = true
+				a.commands[i].Func(ctx, a)
+				a.commands[i].IsActive = false
+				a.commands[i].Cancel()
+			}()
+		}
 	}
 
 }
 
-func (a *Assiser) RotateCommand(talk string) (index int, percent int) {
-	var idx int = 0
+func (a *Assiser) RotateCommand(talk string) (index string, percent int) {
+	var idx string = ""
 	percent = 0
 	var founded bool = false
 	for i, command := range a.commands {
@@ -241,14 +245,14 @@ func (a *Assiser) RotateCommand(talk string) (index int, percent int) {
 		}
 	}
 	if !founded {
-		return 0, 0
+		return "", 0
 	}
 
 	return idx, percent
 }
 
-func (a *Assiser) FoundCommandByToken(talk string) (index, percent int, founded bool) {
-	var idx int = 0
+func (a *Assiser) FoundCommandByToken(talk string) (index string, percent int, founded bool) {
+	var idx string = ""
 	percent = 0
 	founded = false
 	for i, command := range a.commands {
@@ -264,8 +268,8 @@ func (a *Assiser) FoundCommandByToken(talk string) (index, percent int, founded 
 	return idx, percent, founded
 }
 
-func (a *Assiser) FoundCommandByDistance(talk string) (index, distance int, founded bool) {
-	var idx int = 0
+func (a *Assiser) FoundCommandByDistance(talk string) (index string, distance int, founded bool) {
+	var idx string = ""
 	distance = 1000000
 	founded = false
 	for i, command := range a.commands {
@@ -281,8 +285,8 @@ func (a *Assiser) FoundCommandByDistance(talk string) (index, distance int, foun
 	return idx, distance, founded
 }
 
-func (a *Assiser) FoundCommandByRatio(talk string) (index, ratio int, founded bool) {
-	var idx int = 0
+func (a *Assiser) FoundCommandByRatio(talk string) (index string, ratio int, founded bool) {
+	var idx string = ""
 	ratio = 0
 	founded = false
 	for i, command := range a.commands {
@@ -298,7 +302,7 @@ func (a *Assiser) FoundCommandByRatio(talk string) (index, ratio int, founded bo
 	return idx, ratio, founded
 }
 
-func (a *Assiser) MatchCommand(talk string) (index int, params map[string]string, founded bool) {
+func (a *Assiser) MatchCommand(talk string) (index string, params map[string]string, founded bool) {
 	founded = false
 	for i, command := range a.commands {
 		for _, c := range command.Commands {
@@ -308,9 +312,9 @@ func (a *Assiser) MatchCommand(talk string) (index int, params map[string]string
 
 			params = make(map[string]string)
 			if matches != nil {
-				for i, name := range r.SubexpNames() {
-					if i > 0 && i <= len(matches) {
-						params[name] = matches[i]
+				for s, name := range r.SubexpNames() {
+					if s > 0 && s <= len(matches) {
+						params[name] = matches[s]
 					}
 				}
 			}
@@ -320,7 +324,7 @@ func (a *Assiser) MatchCommand(talk string) (index int, params map[string]string
 		}
 	}
 
-	return 0, map[string]string{}, false
+	return "", map[string]string{}, false
 }
 
 func (a *Assiser) prepareCommand(talk string) string {
@@ -344,7 +348,7 @@ func (a *Assiser) prepareCommand(talk string) string {
 	return talk
 }
 
-func (a *Assiser) ComparingCommand(talk string) (index int, found bool) {
+func (a *Assiser) ComparingCommand(talk string) (index string, found bool) {
 	talk = a.prepareCommand(talk)
 	found = false
 	t, tv, tf := a.FoundCommandByToken(talk)
@@ -364,7 +368,7 @@ func (a *Assiser) ComparingCommand(talk string) (index int, found bool) {
 	}
 
 	a.log.DEBUG(fmt.Sprintf("not found command '%s'", talk))
-	return 0, false
+	return "", false
 }
 
 func (a *Assiser) SetConfig(cfg Config) {
@@ -573,7 +577,19 @@ func (a *Assiser) AddGenCommand(data ObjectCommand) {
 }
 
 func (a *Assiser) DeleteAllCommand() {
-	a.commands = []CommandStruct{}
+	a.commands = make(map[string]*CommandStruct)
+}
+
+func (a *Assiser) DeleteCommand(id string) {
+	delete(a.commands, id)
+}
+
+func (a *Assiser) GetCommand(id string) (*CommandStruct, error) {
+	if _, ok := a.commands[id]; ok {
+		return a.commands[id], nil
+	}
+
+	return nil, fmt.Errorf("not found command by id: %s", id)
 }
 
 func (a *Assiser) userSaid(txt string) {

@@ -3,11 +3,19 @@ package smarty
 import (
 	"context"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
+	"time"
 
 	v "github.com/itchyny/volume-go"
 )
+
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 // объеденяем каналы
 func MergeChans(ctx context.Context, c1 chan []byte, c2 chan []byte) chan []byte {
@@ -76,4 +84,12 @@ func Min(val1, val2 int) int {
 		return val1
 	}
 	return val2
+}
+
+func RandStringRunes(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }
