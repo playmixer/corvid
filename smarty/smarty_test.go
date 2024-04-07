@@ -365,3 +365,18 @@ func TestDelete(t *testing.T) {
 	time.Sleep(time.Second * 3)
 	fmt.Println(assist.GetCommands())
 }
+
+func TestVoiceCommand(t *testing.T) {
+
+	ctx := context.TODO()
+	recognize := &rcgnz{}
+	assist = smarty.New(ctx)
+	assist.SetRecognizeCommand(recognize)
+	assist.SetRecognizeName(recognize)
+
+	assist.AddGenCommand(smarty.ObjectCommand{Commands: []string{"привет"}, Type: "voice", Path: "", Args: []string{"привет"}})
+
+	assist.RunCommand("привет")
+	time.Sleep(time.Second * 2)
+
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -526,8 +527,9 @@ func (a *Assiser) VoiceError(ctx context.Context, text string) error {
 type TypeCommand string
 
 const (
-	tcExec TypeCommand = "exec"
-	tcTool TypeCommand = "tool"
+	tcExec  TypeCommand = "exec"
+	tcTool  TypeCommand = "tool"
+	tcVoice TypeCommand = "voice"
 )
 
 type ObjectCommand struct {
@@ -549,6 +551,25 @@ func (a *Assiser) newCommandExec(pathFile string, args ...string) CommandFunc {
 				a.log.ERROR(pathFile + " " + strings.Join(args, " ") + " error: " + err.Error())
 			}
 		}()
+	}
+}
+
+/**
+* создаем команду с голосовым ответом
+ */
+func (a *Assiser) newCommandVoice(path string, args ...string) CommandFunc {
+
+	return func(ctx context.Context, a *Assiser) {
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			if f, err := os.Open(path); err == nil {
+				if bFile, err := io.ReadAll(f); err == nil {
+					a.Voice(ctx, string(bFile))
+				}
+			}
+		}
+		for _, t := range args {
+			a.Voice(ctx, t)
+		}
 	}
 }
 
@@ -576,11 +597,13 @@ func (a *Assiser) LoadCommands(filepath string) error {
 func (a *Assiser) AddGenCommand(data ObjectCommand) {
 	a.log.DEBUG(fmt.Sprintf("add command %s %s %s %s", strings.Join(data.Commands, "|"), data.Type, data.Path, strings.Join(data.Args, "|")))
 	var f CommandFunc
-	if data.Type == tcExec {
+	switch data.Type {
+	case tcExec:
 		f = a.newCommandExec(data.Path, data.Args...)
-	}
-	if data.Type == tcTool {
+	case tcTool:
 		f = a.newCommandTool(data.Path, data.Args)
+	case tcVoice:
+		f = a.newCommandVoice(data.Path, data.Args...)
 	}
 	if f != nil {
 		a.AddCommand(data.Commands, f)
