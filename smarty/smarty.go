@@ -121,6 +121,7 @@ type Assiser struct {
 	wavBuffer        []wavBuffer
 	recorder         *listen.Listener
 	UserSaid         chan string
+	gameMode         bool
 	sync.Mutex
 }
 
@@ -147,9 +148,14 @@ func New(ctx context.Context) *Assiser {
 			LastCommand: "",
 		},
 		UserSaid: make(chan string),
+		gameMode: false,
 	}
 
 	return a
+}
+
+func (a *Assiser) SetGameMode(v bool) {
+	a.gameMode = v
 }
 
 func (a *Assiser) GetContext() context.Context {
@@ -455,7 +461,7 @@ waitFor:
 				emptyMessageCounter = 0
 			}
 			if txt == "" {
-				if notEmptyMessageCounter > 0 && !isListenName {
+				if (notEmptyMessageCounter > 0 && !isListenName) || a.gameMode {
 					wavB := a.GetWavFromBuf(notEmptyMessageCounter)
 					translateText, err := a.recognizeCommand.Recognize(wavB)
 					if err != nil {
@@ -465,7 +471,7 @@ waitFor:
 					a.userSaid(translateText)
 					a.RunCommand(translateText)
 				}
-				if emptyMessageCounter > a.maxEmptyMessage && !isListenName {
+				if emptyMessageCounter > a.maxEmptyMessage && !isListenName && !a.gameMode {
 					isListenName = true
 					a.PostSignalEvent(AEStartListeningName)
 				}

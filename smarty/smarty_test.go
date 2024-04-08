@@ -3,10 +3,13 @@ package smarty_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/playmixer/corvid/smarty"
+	voskclient "github.com/playmixer/corvid/vosk-client"
 )
 
 var (
@@ -21,6 +24,8 @@ func (r *rcgnz) Recognize(bufWav []byte) (string, error) {
 }
 
 func Init() {
+	godotenv.Load()
+
 	ctx := context.TODO()
 	recognize := &rcgnz{}
 	assist = smarty.New(ctx)
@@ -378,5 +383,23 @@ func TestVoiceCommand(t *testing.T) {
 
 	assist.RunCommand("привет")
 	time.Sleep(time.Second * 2)
+
+}
+
+func TestGameMode(t *testing.T) {
+	godotenv.Load()
+	recognizer := voskclient.New()
+	recognizer.Host = os.Getenv("VOSK_HOST")
+	recognizer.Port = os.Getenv("VOSK_PORT")
+	ctx := context.TODO()
+	assist = smarty.New(ctx)
+	assist.SetRecognizeCommand(recognizer)
+	assist.SetRecognizeName(recognizer)
+
+	assist.Names = []string{"альфа"}
+
+	assist.SetGameMode(true)
+
+	assist.Start()
 
 }
