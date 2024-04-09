@@ -1,7 +1,6 @@
 package listen
 
 import (
-	"fmt"
 	"io"
 	"os"
 
@@ -67,7 +66,7 @@ func WavSilence(data []byte) (int, error) {
 		s += abs(int(sample))
 		c++
 	}
-	fmt.Println(s / c)
+	// fmt.Println(s / c)
 	return s / c, nil
 }
 
