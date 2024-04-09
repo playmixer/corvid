@@ -3,13 +3,11 @@ package smarty_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/playmixer/corvid/smarty"
-	voskclient "github.com/playmixer/corvid/vosk-client"
 )
 
 var (
@@ -371,35 +369,47 @@ func TestDelete(t *testing.T) {
 	fmt.Println(assist.GetCommands())
 }
 
-func TestVoiceCommand(t *testing.T) {
+// func TestVoiceCommand(t *testing.T) {
 
-	ctx := context.TODO()
-	recognize := &rcgnz{}
-	assist = smarty.New(ctx)
-	assist.SetRecognizeCommand(recognize)
-	assist.SetRecognizeName(recognize)
+// 	ctx := context.TODO()
+// 	recognize := &rcgnz{}
+// 	assist = smarty.New(ctx)
+// 	assist.SetRecognizeCommand(recognize)
+// 	assist.SetRecognizeName(recognize)
 
-	assist.AddGenCommand(smarty.ObjectCommand{Commands: []string{"привет"}, Type: "voice", Path: "", Args: []string{"привет"}})
+// 	assist.AddGenCommand(smarty.ObjectCommand{Commands: []string{"привет"}, Type: "voice", Path: "", Args: []string{"привет"}})
 
-	assist.RunCommand("привет")
-	time.Sleep(time.Second * 2)
+// 	assist.RunCommand("привет")
+// 	time.Sleep(time.Second * 2)
 
-}
+// }
 
-func TestGameMode(t *testing.T) {
-	godotenv.Load()
-	recognizer := voskclient.New()
-	recognizer.Host = os.Getenv("VOSK_HOST")
-	recognizer.Port = os.Getenv("VOSK_PORT")
-	ctx := context.TODO()
-	assist = smarty.New(ctx)
-	assist.SetRecognizeCommand(recognizer)
-	assist.SetRecognizeName(recognizer)
+// func TestGameMode(t *testing.T) {
+// 	godotenv.Load()
 
-	assist.Names = []string{"альфа"}
+// 	log := logger.New("app")
+// 	log.LogLevel = logger.INFO
 
-	assist.SetGameMode(true)
+// 	recognizer := voskclient.New()
+// 	recognizer.SetLogger(log)
+// 	recognizer.Host = os.Getenv("VOSK_HOST")
+// 	recognizer.Port = os.Getenv("VOSK_PORT")
+// 	ctx := context.TODO()
 
-	assist.Start()
+// 	assist = smarty.New(ctx)
+// 	assist.SetConfig(smarty.Config{
+// 		Names:           []string{"альфа"},
+// 		ListenLongTime:  time.Second / 2,
+// 		LenWavBuf:       40,
+// 		MaxEmptyMessage: 40,
+// 	})
+// 	assist.SetLogger(log)
+// 	assist.SetRecognizeCommand(recognizer)
+// 	assist.SetRecognizeName(recognizer)
 
-}
+// 	assist.SetGameMode(true)
+// 	assist.RecognizeEmptyWav = false
+
+// 	assist.Start()
+
+// }

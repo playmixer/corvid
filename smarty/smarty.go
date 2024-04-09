@@ -105,23 +105,25 @@ type AssitentVoice struct {
 }
 
 type Assiser struct {
-	ctx              context.Context
-	log              iLogger
-	Names            []string
-	listenLongTime   time.Duration
-	lenWavBuf        int
-	maxEmptyMessage  int
-	commands         map[string]*CommandStruct
-	muCmd            sync.Mutex
-	eventChan        chan AssiserEvent
-	recognizeCommand IReacognize
-	recognizeName    IReacognize
-	voice            AssitentVoice
-	Status           assistentStatus
-	wavBuffer        []wavBuffer
-	recorder         *listen.Listener
-	UserSaid         chan string
-	gameMode         bool
+	ctx               context.Context
+	log               iLogger
+	names             []string
+	listenLongTime    time.Duration
+	lenWavBuf         int
+	maxEmptyMessage   int
+	commands          map[string]*CommandStruct
+	muCmd             sync.Mutex
+	eventChan         chan AssiserEvent
+	recognizeCommand  IReacognize
+	recognizeName     IReacognize
+	voice             AssitentVoice
+	Status            assistentStatus
+	wavBuffer         []wavBuffer
+	recorder          *listen.Listener
+	UserSaid          chan string
+	gameMode          bool
+	RecognizeEmptyWav bool
+	ThresholdSilence  int
 	sync.Mutex
 }
 
@@ -130,7 +132,7 @@ func New(ctx context.Context) *Assiser {
 	a := &Assiser{
 		log:             &logger{},
 		ctx:             ctx,
-		Names:           []string{"альфа", "alpha"},
+		names:           []string{"альфа", "alpha"},
 		listenLongTime:  time.Second * 2,
 		lenWavBuf:       LEN_WAV_BUFF,
 		maxEmptyMessage: CMD_MAX_EMPTY_MESSAGE,
@@ -147,8 +149,10 @@ func New(ctx context.Context) *Assiser {
 		Status: assistentStatus{
 			LastCommand: "",
 		},
-		UserSaid: make(chan string),
-		gameMode: false,
+		UserSaid:          make(chan string),
+		gameMode:          false,
+		RecognizeEmptyWav: false,
+		ThresholdSilence:  50,
 	}
 
 	return a
@@ -349,8 +353,8 @@ func (a *Assiser) prepareCommand(talk string) string {
 	//удаляем имя из команды
 	arrCommand := []string{}
 	for i := range splitTalk {
-		for idxName := range a.Names {
-			if splitTalk[i] == a.Names[idxName] {
+		for idxName := range a.names {
+			if splitTalk[i] == a.names[idxName] {
 				continue
 			}
 		}
@@ -387,7 +391,7 @@ func (a *Assiser) ComparingCommand(talk string) (index string, found bool) {
 }
 
 func (a *Assiser) SetConfig(cfg Config) {
-	a.Names = cfg.Names
+	a.names = cfg.Names
 	a.listenLongTime = cfg.ListenLongTime
 	// a.lenWavBuf = cfg.LenWavBuf
 	a.wavBuffer = make([]wavBuffer, cfg.LenWavBuf)
@@ -421,6 +425,9 @@ func (a *Assiser) Start() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
+	// передаем порог тишины
+	listen.ThresholdSilence = a.ThresholdSilence
+
 	// слушаем имя 1ый поток
 	log.INFO("Starting listen. Stram #1 ")
 	a.recorder = listen.New(a.listenLongTime)
@@ -450,10 +457,15 @@ waitFor:
 			break waitFor
 
 		case s := <-a.recorder.WavCh:
+			txt := ""
+			var err error
 			log.DEBUG("smarty read from wav chanel")
-			txt, err := a.recognizeName.Recognize(s)
-			if err != nil {
-				log.ERROR(err.Error())
+			isSilent, _ := listen.IsWavSilent(s)
+			if !isSilent || a.RecognizeEmptyWav {
+				txt, err = a.recognizeName.Recognize(s)
+				if err != nil {
+					log.ERROR(err.Error())
+				}
 			}
 			a.addWavToBuf(&wavBuffer{buf: &s, text: txt})
 			if txt != "" {
@@ -462,8 +474,12 @@ waitFor:
 			}
 			if txt == "" {
 				if (notEmptyMessageCounter > 0 && !isListenName) || a.gameMode {
+					translateText := ""
 					wavB := a.GetWavFromBuf(notEmptyMessageCounter)
-					translateText, err := a.recognizeCommand.Recognize(wavB)
+					isSilent, _ := listen.IsWavSilent(wavB)
+					if !isSilent || a.RecognizeEmptyWav {
+						translateText, err = a.recognizeCommand.Recognize(wavB)
+					}
 					if err != nil {
 						log.ERROR(err.Error())
 					}
@@ -484,7 +500,7 @@ waitFor:
 				if err != nil {
 					log.ERROR(err.Error())
 				}
-				if IsFindedNameInText(a.Names, textWithName) {
+				if IsFindedNameInText(a.names, textWithName) {
 					isListenName = false
 					a.PostSignalEvent(AEStartListeningCommand)
 				}
@@ -495,7 +511,7 @@ waitFor:
 }
 
 func (a *Assiser) Print(t ...any) {
-	fmt.Println(a.Names[0]+": ", fmt.Sprint(t...))
+	fmt.Println(a.names[0]+": ", fmt.Sprint(t...))
 }
 
 func (a *Assiser) PostSignalEvent(s AssiserEvent) {
