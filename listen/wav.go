@@ -8,6 +8,10 @@ import (
 	concatwav "github.com/moutend/go-wav"
 )
 
+var (
+	ThresholdSilence = 50
+)
+
 func IsWavEmpty(data []byte) (bool, error) {
 	// Проверяем, что у нас есть достаточно данных для анализа заголовка WAV
 	if len(data) < 44 {
@@ -48,10 +52,10 @@ func IsWavEmpty(data []byte) (bool, error) {
 	return true, nil
 }
 
-func IsWavSilent(data []byte) (bool, error) {
+func WavSilence(data []byte) (int, error) {
 	// Проверяем, что у нас есть достаточно данных для анализа заголовка WAV
 	if len(data) < 44 {
-		return false, ErrNotEnoughDataToParseWav
+		return 0, ErrNotEnoughDataToParseWav
 	}
 
 	// Анализируем данные сэмплов
@@ -60,11 +64,23 @@ func IsWavSilent(data []byte) (bool, error) {
 	for i := 44; i < len(data); i += 2 {
 		// Преобразуем два байта в 16-битное число
 		sample := int16(data[i]) | int16(data[i+1])<<8
-		s += int(sample)
+		s += abs(int(sample))
 		c++
 	}
 	fmt.Println(s / c)
-	return s/c < -5, nil
+	return s / c, nil
+}
+
+func IsWavSilent(data []byte) (bool, error) {
+	t, err := WavSilence(data)
+	return t < ThresholdSilence, err
+}
+
+func abs(i int) int {
+	if i < 0 {
+		return -i
+	}
+	return i
 }
 
 func IsVoiceless(data []byte, minSample, maxSample int16) (bool, int16, error) {
