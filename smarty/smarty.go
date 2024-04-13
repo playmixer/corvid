@@ -124,6 +124,7 @@ type Assiser struct {
 	gameMode          bool
 	RecognizeEmptyWav bool
 	ThresholdSilence  int
+	MicrophoneName    string
 	sync.Mutex
 }
 
@@ -153,6 +154,7 @@ func New(ctx context.Context) *Assiser {
 		gameMode:          false,
 		RecognizeEmptyWav: false,
 		ThresholdSilence:  50,
+		MicrophoneName:    "",
 	}
 
 	return a
@@ -433,6 +435,14 @@ func (a *Assiser) Start() {
 	a.recorder = listen.New(a.listenLongTime)
 	a.recorder.SetName("Record")
 	a.recorder.SetLogger(log)
+
+	if a.MicrophoneName != "" {
+		err := a.recorder.SetMicrophon(a.MicrophoneName)
+		if err != nil {
+			log.ERROR(err.Error())
+			log.INFO("Use default microphon")
+		}
+	}
 	a.recorder.Start(ctx)
 	defer a.recorder.Stop()
 

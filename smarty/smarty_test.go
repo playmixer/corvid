@@ -413,3 +413,21 @@ func TestDelete(t *testing.T) {
 // 	assist.Start()
 
 // }
+
+// func TestSetMicrophone(t *testing.T) {
+// 	devices, _ := listen.GetMicrophons()
+// 	fmt.Println(devices)
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	recognize := &rcgnz{}
+// 	assist = smarty.New(ctx)
+// 	assist.SetRecognizeCommand(recognize)
+// 	assist.SetRecognizeName(recognize)
+// 	// valid microphone name
+// 	assist.MicrophoneName = "Микрофон (High Definition Audio Device)"
+// 	go func() {
+// 		time.Sleep(time.Second * 2)
+// 		cancel()
+// 	}()
+// 	assist.Start()
+
+// }
