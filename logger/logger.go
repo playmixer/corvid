@@ -1,145 +1,103 @@
 package logger
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
-	"path"
-	"time"
+	"path/filepath"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
+	"github.com/playmixer/secret-keeper/pkg/tools"
 )
 
-type Level uint
-
-const (
-	OFF   Level = 100
-	ERROR Level = 40
-	WARN  Level = 30
-	INFO  Level = 20
-	DEBUG Level = 10
-	ALL   Level = 0
-
-	sWARN  string = "warn"
-	sINFO  string = "info"
-	sERROR string = "error"
-	sDEBUG string = "debug"
-)
-
-type Logger struct {
-	filename      string
-	Dir           string
-	file          *os.File
-	fullPath      string
-	InfoLogger    *log.Logger
-	WarningLogger *log.Logger
-	ErrorLogger   *log.Logger
-	DebugLogger   *log.Logger
-	LogLevel      Level
+type loggerConfigurator struct {
+	level      string
+	logPath    string
+	isTerminal bool
+	isFile     bool
 }
 
-func (l *Logger) getLogFilePath() string {
+type option func(*loggerConfigurator)
 
-	filename := l.filename + "_" + time.Now().Format("2006-01-02") + ".log"
-
-	path := path.Join(l.Dir, filename)
-
-	return path
+func SetLevel(level string) option {
+	return func(l *loggerConfigurator) {
+		l.level = level
+	}
 }
 
-func (l *Logger) rotate() {
-	var err error
-	ticker := time.NewTicker(time.Minute)
-	for {
-		<-ticker.C
-		newpath := l.getLogFilePath()
-		if l.fullPath != newpath {
-			l.fullPath = newpath
-			l.file, err = os.OpenFile(l.fullPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			l.WarningLogger = log.New(l.file, "WARN: ", log.Ldate|log.Ltime|log.Lshortfile)
-			l.InfoLogger = log.New(l.file, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-			l.ErrorLogger = log.New(l.file, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
-			l.DebugLogger = log.New(l.file, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
+func SetLogPath(path string) option {
+	return func(l *loggerConfigurator) {
+		if path != "" {
+			l.logPath = path
 		}
 	}
 }
 
-func New(filename string) *Logger {
-	var err error
-	l := Logger{
-		filename: filename,
-		Dir:      "./logs",
+func SetEnableFileOutput(t bool) option {
+	return func(lc *loggerConfigurator) {
+		lc.isFile = t
+	}
+}
+
+func SetEnableTerminalOutput(t bool) option {
+	return func(lc *loggerConfigurator) {
+		lc.isTerminal = t
+	}
+}
+
+func New(options ...option) (*zap.Logger, error) {
+	cfg := loggerConfigurator{
+		level:      "info",
+		logPath:    "./logs/log.log",
+		isTerminal: true,
+		isFile:     true,
 	}
 
-	if _, err := os.Stat(l.Dir); errors.Is(err, os.ErrNotExist) {
-		err := os.Mkdir(l.Dir, os.ModePerm)
+	for _, opt := range options {
+		opt(&cfg)
+	}
+
+	if cfg.logPath != "" {
+		err := os.MkdirAll(filepath.Dir(cfg.logPath), tools.Mode0750)
 		if err != nil {
-			log.Println(err)
+			log.Println("failed create directory for logs")
 		}
 	}
-	l.fullPath = l.getLogFilePath()
-	l.file, err = os.OpenFile(l.fullPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+
+	stdout := zapcore.AddSync(os.Stdout)
+
+	f, err := os.OpenFile(cfg.logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, tools.Mode0600)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed create log file: %w", err)
+	}
+	file := zapcore.AddSync(f)
+
+	level, err := zap.ParseAtomicLevel(cfg.level)
+	if err != nil {
+		return nil, fmt.Errorf("failed parse level: %w", err)
 	}
 
-	l.InfoLogger = log.New(l.file, "INFO: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
-	l.WarningLogger = log.New(l.file, "WARN: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
-	l.ErrorLogger = log.New(l.file, "ERROR: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
-	l.DebugLogger = log.New(l.file, "DEBUG: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
+	productionCfg := zap.NewProductionEncoderConfig()
+	productionCfg.TimeKey = "timestamp"
+	productionCfg.EncodeTime = zapcore.ISO8601TimeEncoder
 
-	l.SetLevelS(os.Getenv("LOG_LEVEL"))
-	go l.rotate()
-	return &l
-}
+	developmentCfg := zap.NewDevelopmentEncoderConfig()
+	developmentCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
 
-func (log *Logger) WARN(t ...string) {
-	if log.LogLevel <= WARN {
-		fmt.Print(time.Now().Format("15:04:05.000000000"))
-		fmt.Println(t)
-		log.WarningLogger.Output(2, fmt.Sprint(t))
-	}
-}
-func (log *Logger) INFO(t ...string) {
-	if log.LogLevel <= INFO {
-		fmt.Print(time.Now().Format("15:04:05.000000000"))
-		fmt.Println(t)
-		log.InfoLogger.Output(2, fmt.Sprint(t))
-	}
-}
-func (log *Logger) ERROR(t ...string) {
-	if log.LogLevel <= ERROR {
-		fmt.Print(time.Now().Format("15:04:05.000000000"))
-		fmt.Println(t)
-		log.ErrorLogger.Output(2, fmt.Sprint(t))
-	}
-}
-func (log *Logger) DEBUG(t ...string) {
-	if log.LogLevel <= DEBUG {
-		fmt.Print(time.Now().Format("15:04:05.000000000"))
-		fmt.Println(t)
-		log.DebugLogger.Output(2, fmt.Sprint(t))
-	}
-}
+	consoleEncoder := zapcore.NewConsoleEncoder(developmentCfg)
+	fileEncoder := zapcore.NewJSONEncoder(productionCfg)
 
-func (log *Logger) SetLevel(lvl Level) {
-	log.LogLevel = lvl
-}
-
-func (log *Logger) SetLevelS(lvl string) {
-	switch lvl {
-	case sWARN:
-		log.LogLevel = WARN
-	case sINFO:
-		log.LogLevel = INFO
-	case sERROR:
-		log.LogLevel = ERROR
-	case sDEBUG:
-		log.LogLevel = DEBUG
-	default:
-		log.LogLevel = INFO
+	ouputs := []zapcore.Core{}
+	if cfg.isFile {
+		ouputs = append(ouputs, zapcore.NewCore(fileEncoder, file, level))
 	}
+	if cfg.isTerminal {
+		ouputs = append(ouputs, zapcore.NewCore(consoleEncoder, stdout, level))
+	}
+
+	core := zapcore.NewTee(ouputs...)
+
+	return zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)), nil
 }
