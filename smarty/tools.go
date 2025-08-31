@@ -13,7 +13,8 @@ import (
 	"time"
 
 	v "github.com/itchyny/volume-go"
-	smarthome "github.com/playmixer/corvid/smart-home"
+	smarthome "github.com/playmixer/corvid/v1/smart-home"
+	"go.uber.org/zap"
 )
 
 type TypeTool string
@@ -54,7 +55,7 @@ func (a *Assiser) newCommandTool(pathFile string, args []string) CommandFunc {
 			if v, ok := Tools[TypeTool(pathFile)]; ok {
 				err := v.Run(a.ctx, a, pathFile, args)
 				if err != nil {
-					a.log.ERROR(err.Error())
+					a.log.Error("error", zap.Error(err))
 					a.VoiceError(ctx, "Ошибка выполнения команды")
 				}
 			}
@@ -118,7 +119,7 @@ func WeatherCurrent(ctx context.Context, a *Assiser, path string, args []string,
 	if err != nil {
 		return err
 	}
-	a.log.DEBUG(string(body))
+	a.log.Debug("body", zap.ByteString("bytes", body))
 	jBody := WeatherResult{}
 	err = json.Unmarshal(body, &jBody)
 	if err != nil {
@@ -144,7 +145,7 @@ func SmartTuyaSwitch(ctx context.Context, a *Assiser, path string, args []string
 	// API smart home
 	sHome, err := smarthome.FactoryNew(smarthome.SHTuyaService)
 	if err != nil {
-		a.log.ERROR(err.Error())
+		a.log.Error("error", zap.Error(err))
 	}
 	params := MarshalArgs(args)
 

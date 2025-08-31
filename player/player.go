@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"log"
 	"os"
 	"time"
 
@@ -15,50 +14,52 @@ import (
 	"github.com/faiface/beep/wav"
 )
 
-func PlayWavFromBytes(ctx context.Context, b []byte) {
+func PlayWavFromBytes(ctx context.Context, b []byte) error {
 
 	streamer, format, err := wav.Decode(bytes.NewReader(b))
-	if err != nil {
-		log.Fatal(err)
-	}
 	defer streamer.Close()
-	playstream(ctx, streamer, format)
+	if err != nil {
+		return err
+	}
+	return playstream(ctx, streamer, format)
 }
 
-func PlayOggFromBytes(ctx context.Context, b []byte) {
+func PlayOggFromBytes(ctx context.Context, b []byte) error {
 	streamer, format, err := vorbis.Decode(io.NopCloser(bytes.NewReader(b)))
-	if err != nil {
-		log.Fatal(err)
-	}
 	defer streamer.Close()
-	playstream(ctx, streamer, format)
+	if err != nil {
+		return err
+	}
+	return playstream(ctx, streamer, format)
 }
 
-func PlayMp3FromBytes(ctx context.Context, b []byte) {
+func PlayMp3FromBytes(ctx context.Context, b []byte) error {
 	streamer, format, err := mp3.Decode(io.NopCloser(bytes.NewReader(b)))
-	if err != nil {
-		log.Fatal(err)
-	}
 	defer streamer.Close()
-	playstream(ctx, streamer, format)
+	if err != nil {
+		return err
+	}
+	return playstream(ctx, streamer, format)
 }
 
-func PlayWavFromFile(ctx context.Context, filename string) {
+func PlayWavFromFile(ctx context.Context, filename string) error {
 	f, err := os.Open(filename)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	streamer, format, err := wav.Decode(f)
-	if err != nil {
-		log.Fatal(err)
-	}
 	defer streamer.Close()
-	playstream(ctx, streamer, format)
+	if err != nil {
+		return err
+	}
+	return playstream(ctx, streamer, format)
 }
 
-func playstream(ctx context.Context, streamer beep.StreamSeekCloser, format beep.Format) {
-	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+func playstream(ctx context.Context, streamer beep.StreamSeekCloser, format beep.Format) error {
+	if err := speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10)); err != nil {
+		return err
+	}
 	done := make(chan bool)
 	defer close(done)
 	speaker.Play(beep.Seq(streamer, beep.Callback(func() {
@@ -67,9 +68,9 @@ func playstream(ctx context.Context, streamer beep.StreamSeekCloser, format beep
 
 	select {
 	case <-done:
-		// log.Println("done playstream")
 	case <-ctx.Done():
 		speaker.Close()
-		// log.Println("cancel playstream")
 	}
+
+	return nil
 }

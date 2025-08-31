@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -17,7 +16,8 @@ import (
 	"time"
 
 	fuzzy "github.com/paul-mannino/go-fuzzywuzzy"
-	"github.com/playmixer/corvid/listen"
+	"github.com/playmixer/corvid/v1/listen"
+	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 )
 
@@ -46,26 +46,6 @@ const (
 
 	CMD_MAX_EMPTY_MESSAGE = 10
 )
-
-type iLogger interface {
-	ERROR(v ...string)
-	INFO(v ...string)
-	DEBUG(v ...string)
-}
-
-type logger struct{}
-
-func (l *logger) ERROR(v ...string) {
-	log.Println("ERROR", v)
-}
-
-func (l *logger) INFO(v ...string) {
-	log.Println("INFO", v)
-}
-
-func (l *logger) DEBUG(v ...string) {
-	log.Println("DEBUG", v)
-}
 
 type CommandFunc func(ctx context.Context, a *Assiser)
 
@@ -106,7 +86,7 @@ type AssitentVoice struct {
 
 type Assiser struct {
 	ctx               context.Context
-	log               iLogger
+	log               *zap.Logger
 	names             []string
 	listenLongTime    time.Duration
 	lenWavBuf         int
@@ -131,7 +111,7 @@ type Assiser struct {
 func New(ctx context.Context) *Assiser {
 
 	a := &Assiser{
-		log:             &logger{},
+		log:             zap.NewNop(),
 		ctx:             ctx,
 		names:           []string{"альфа", "alpha"},
 		listenLongTime:  time.Second * 2,
@@ -222,10 +202,10 @@ func (a *Assiser) RunCommand(cmd string) {
 	a.Lock()
 	defer a.Unlock()
 	i, found := a.ComparingCommand(cmd)
-	a.log.DEBUG("rotate command", cmd, fmt.Sprint(i), fmt.Sprint(found))
+	a.log.Debug("rotate command", zap.String("cmd", cmd), zap.String("i", i), zap.Bool("isFound", found))
 	if found {
 		a.Status.LastCommand = cmd
-		a.log.DEBUG("Run command", cmd)
+		a.log.Debug("Run command", zap.String("cmd", cmd))
 		a.PostSignalEvent(AEApplyCommand)
 		ctx, cancel := context.WithCancel(a.ctx)
 		if _, ok := a.commands[i]; ok {
@@ -365,7 +345,7 @@ func (a *Assiser) prepareCommand(talk string) string {
 	splitTalk = arrCommand
 
 	talk = strings.Join(splitTalk, " ")
-	a.log.DEBUG("prepare command: " + talk)
+	a.log.Debug("prepare command: " + talk)
 	return talk
 }
 
@@ -378,17 +358,17 @@ func (a *Assiser) ComparingCommand(talk string) (index string, found bool) {
 	if tf == df && df == rf && rf &&
 		t == d && d == r &&
 		tv >= F_MIN_TOKEN && (dv <= F_MAX_DISTANCE || rv >= F_MIN_RATIO) {
-		a.log.DEBUG(fmt.Sprintf("find command id=%v, talk=%s, command=%s", t, talk, a.commands[t].Commands[0]))
+		a.log.Debug(fmt.Sprintf("find command id=%v, talk=%s, command=%s", t, talk, a.commands[t].Commands[0]))
 		return t, tf
 	}
 	rIdx, rParams, rFounded := a.MatchCommand(talk)
 	if rFounded {
 		a.voice.Params = rParams
-		a.log.DEBUG(fmt.Sprintf("find command id=%v, talk=%s, command=%s, params=%s", t, talk, a.commands[t].Commands[0], a.voice.Params))
+		a.log.Debug(fmt.Sprintf("find command id=%v, talk=%s, command=%s, params=%s", t, talk, a.commands[t].Commands[0], a.voice.Params))
 		return rIdx, rFounded
 	}
 
-	a.log.DEBUG(fmt.Sprintf("not found command '%s'", talk))
+	a.log.Debug(fmt.Sprintf("not found command '%s'", talk))
 	return "", false
 }
 
@@ -400,7 +380,7 @@ func (a *Assiser) SetConfig(cfg Config) {
 	a.maxEmptyMessage = cfg.MaxEmptyMessage
 }
 
-func (a *Assiser) SetLogger(log iLogger) {
+func (a *Assiser) SetLogger(log *zap.Logger) {
 	a.log = log
 }
 
@@ -408,7 +388,7 @@ func (a *Assiser) InitDefaultCommand() {
 	a.AddCommand([]string{"стоп", "stop"}, func(ctx context.Context, a *Assiser) {
 		for i := range a.commands {
 			if a.commands[i].IsActive {
-				a.log.INFO("Стоп", fmt.Sprint(a.commands[i].Commands[0]))
+				a.log.Info("Стоп", zap.String("cmd", a.commands[i].Commands[0]))
 				a.commands[i].Cancel()
 			}
 		}
@@ -418,7 +398,7 @@ func (a *Assiser) InitDefaultCommand() {
 func (a *Assiser) Start() {
 	log := a.log
 	if a.recognizeCommand == nil || a.recognizeName == nil {
-		log.ERROR("Cannot founded recognize method")
+		log.Error("Cannot founded recognize method")
 		return
 	}
 
@@ -431,16 +411,16 @@ func (a *Assiser) Start() {
 	listen.ThresholdSilence = a.ThresholdSilence
 
 	// слушаем имя 1ый поток
-	log.INFO("Starting listen. Stram #1 ")
+	log.Info("Starting listen. Stram #1 ")
 	a.recorder = listen.New(a.listenLongTime)
 	a.recorder.SetName("Record")
-	a.recorder.SetLogger(log)
+	a.recorder.SetLogger(a.log)
 
 	if a.MicrophoneName != "" {
 		err := a.recorder.SetMicrophon(a.MicrophoneName)
 		if err != nil {
-			log.ERROR(err.Error())
-			log.INFO("Use default microphon")
+			log.Error("error", zap.Error(err))
+			log.Info("Use default microphon")
 		}
 	}
 	a.recorder.Start(ctx)
@@ -454,7 +434,7 @@ func (a *Assiser) Start() {
 
 waitFor:
 	for {
-		log.DEBUG("for loop")
+		log.Debug("for loop")
 		// fmt.Println("emptyMessageCounter", emptyMessageCounter)
 		// fmt.Println(a.wavBuffer)
 		select {
@@ -469,12 +449,12 @@ waitFor:
 		case s := <-a.recorder.WavCh:
 			txt := ""
 			var err error
-			log.DEBUG("smarty read from wav chanel")
+			log.Debug("smarty read from wav chanel")
 			isSilent, _ := listen.IsWavSilent(s)
 			if !isSilent || a.RecognizeEmptyWav {
 				txt, err = a.recognizeName.Recognize(s)
 				if err != nil {
-					log.ERROR(err.Error())
+					log.Error(err.Error())
 				}
 			}
 			a.addWavToBuf(&wavBuffer{buf: &s, text: txt})
@@ -491,9 +471,9 @@ waitFor:
 						translateText, err = a.recognizeCommand.Recognize(wavB)
 					}
 					if err != nil {
-						log.ERROR(err.Error())
+						log.Error("error", zap.Error(err))
 					}
-					log.INFO("Вы сказали: " + translateText)
+					log.Info("Вы сказали: " + translateText)
 					a.userSaid(translateText)
 					a.RunCommand(translateText)
 				}
@@ -508,7 +488,7 @@ waitFor:
 				wavB := a.GetWavFromBuf(2)
 				textWithName, err := a.recognizeName.Recognize(wavB)
 				if err != nil {
-					log.ERROR(err.Error())
+					log.Error("error", zap.Error(err))
 				}
 				if IsFindedNameInText(a.names, textWithName) {
 					isListenName = false
@@ -580,7 +560,7 @@ func (a *Assiser) newCommandExec(pathFile string, args ...string) CommandFunc {
 		go func() {
 			err := exec.Command(pathFile, args...).Run()
 			if err != nil {
-				a.log.ERROR(pathFile + " " + strings.Join(args, " ") + " error: " + err.Error())
+				a.log.Error(pathFile + " " + strings.Join(args, " ") + " error: " + err.Error())
 			}
 		}()
 	}
@@ -627,7 +607,7 @@ func (a *Assiser) LoadCommands(filepath string) error {
 }
 
 func (a *Assiser) AddGenCommand(data ObjectCommand) {
-	a.log.DEBUG(fmt.Sprintf("add command %s %s %s %s", strings.Join(data.Commands, "|"), data.Type, data.Path, strings.Join(data.Args, "|")))
+	a.log.Debug(fmt.Sprintf("add command %s %s %s %s", strings.Join(data.Commands, "|"), data.Type, data.Path, strings.Join(data.Args, "|")))
 	var f CommandFunc
 	switch data.Type {
 	case tcExec:

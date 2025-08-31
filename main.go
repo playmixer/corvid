@@ -3,31 +3,33 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
-	"github.com/playmixer/corvid/logger"
-	"github.com/playmixer/corvid/smarty"
-	voskclient "github.com/playmixer/corvid/vosk-client"
+	logger "github.com/playmixer/corvid/logger/v2"
+
+	"github.com/playmixer/corvid/v1/smarty"
+	voskclient "github.com/playmixer/corvid/v1/vosk-client"
 )
 
 func main() {
-
 	ctx := context.TODO()
 
-	log := logger.New("app")
-	log.LogLevel = logger.INFO
+	lgr, err := logger.New()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	recognizer := voskclient.New()
 	recognizer.Host = "192.168.0.2"
 	recognizer.Port = "2700"
-	recognizer.SetLogger(log)
 
 	assistent := smarty.New(ctx)
 	assistent.SetRecognizeCommand(recognizer)
 	assistent.SetRecognizeName(recognizer)
-	assistent.SetLogger(log)
+	assistent.SetLogger(lgr)
 	assistent.SetConfig(smarty.Config{
-		Names:           []string{"альфа", "бета", "бэта"},
+		Names:           []string{"альфа"},
 		ListenLongTime:  time.Second / 2,
 		LenWavBuf:       40,
 		MaxEmptyMessage: 40,
@@ -39,8 +41,8 @@ func main() {
 		a.Print(txt)
 	})
 
-	log.INFO("Starting App")
+	log.Println("Starting App")
 	assistent.Start()
 
-	log.INFO("Stop App")
+	log.Println("Stop App")
 }

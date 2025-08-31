@@ -5,6 +5,11 @@
 go get github.com/playmixer/corvid
 ```
 
+## Установка (pvrecorder)
+- Go 1.16+
+- Runs on Linux (x86_64), macOS (x86_64 and arm64), Windows (x86_64), Raspberry Pi (all variants), NVIDIA Jetson (Nano), and BeagleBone.
+- Windows: The demo requires cgo, which means that you need to install a gcc compiler like [Mingw](http://mingw-w64.org/) to build it properly.
+
 
 ## DEMO
 [demo](./main.go)
@@ -53,16 +58,12 @@ func main() {
 
 	ctx := context.TODO()
 
-	log := logger.New("app")
-	log.LogLevel = logger.INFO
 
 	recognizer := voskclient.New()
-	recognizer.SetLogger(log)
 
 	assistent := smarty.New(ctx)
 	assistent.SetRecognizeCommand(recognizer)
 	assistent.SetRecognizeName(recognizer)
-	assistent.SetLogger(log)
 	assistent.SetConfig(smarty.Config{
 		Names:         []string{"альфа", "бета", "бэта"},
 		ListenTimeout: time.Second * 1,

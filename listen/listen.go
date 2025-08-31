@@ -7,31 +7,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"strconv"
 	"sync"
 	"time"
 
 	pvrecorder "github.com/Picovoice/pvrecorder/binding/go"
 	"github.com/go-audio/wav"
+	"go.uber.org/zap"
 )
-
-type logger interface {
-	ERROR(v ...string)
-	INFO(v ...string)
-	DEBUG(v ...string)
-}
-
-type tLog struct{}
-
-func (l *tLog) ERROR(v ...string) {
-	fmt.Println(v)
-}
-func (l *tLog) INFO(v ...string) {
-	fmt.Println(v)
-}
-func (l *tLog) DEBUG(v ...string) {
-	fmt.Println(v)
-}
 
 type Listener struct {
 	NameApp    string
@@ -42,7 +24,7 @@ type Listener struct {
 	BitDepth   int
 	NumChans   int
 	Filename   string
-	log        logger
+	log        *zap.Logger
 	IsActive   bool
 	StartTime  time.Time
 	sliceCh    chan int
@@ -63,11 +45,11 @@ func New(t time.Duration) *Listener {
 		WavCh:      make(chan []byte, 1),
 		sliceCh:    make(chan int, 1),
 		DeviceId:   -1,
-		log:        &tLog{},
+		log:        zap.NewNop(),
 	}
 }
 
-func (l *Listener) SetLogger(log logger) {
+func (l *Listener) SetLogger(log *zap.Logger) {
 	l.log = log
 }
 
@@ -79,7 +61,7 @@ func (l *Listener) Stop() {
 	if !l.IsActive {
 		return
 	}
-	l.log.DEBUG(l.NameApp + ": Stop")
+	l.log.Debug(l.NameApp + ": Stop")
 	close(l.stopCh)
 	l.Lock()
 	defer l.Unlock()
@@ -122,21 +104,21 @@ func (l *Listener) Start(ctx context.Context) {
 		l.IsActive = true
 		l.stopCh = make(chan struct{})
 		flag.Parse()
-		l.log.DEBUG(fmt.Sprintf(l.NameApp+": pvrecorder.go version: %s", pvrecorder.Version))
+		l.log.Debug(fmt.Sprintf(l.NameApp+": pvrecorder.go version: %s", pvrecorder.Version))
 
 		recorder := CreateRecorder(l.DeviceId)
 
-		l.log.DEBUG(l.NameApp + ": Initializing...")
+		l.log.Debug(l.NameApp + ": Initializing...")
 		if err := recorder.Init(); err != nil {
-			l.log.ERROR(l.NameApp+" Error: %s.\n", err.Error())
+			l.log.Error(l.NameApp, zap.Error(err))
 		}
 		defer recorder.Delete()
 
-		l.log.DEBUG(fmt.Sprintf(l.NameApp+": Using device: %s", recorder.GetSelectedDevice()))
+		l.log.Debug(fmt.Sprintf(l.NameApp+": Using device: %s", recorder.GetSelectedDevice()))
 
-		l.log.INFO(l.NameApp + ": Starting listener...")
+		l.log.Info(l.NameApp + ": Starting listener...")
 		if err := recorder.Start(); err != nil {
-			l.log.ERROR(l.NameApp+" Error: %s.\n", err.Error())
+			l.log.Error(l.NameApp, zap.Error(err))
 		}
 
 		l.stopCh = make(chan struct{})
@@ -144,7 +126,7 @@ func (l *Listener) Start(ctx context.Context) {
 
 		go func() {
 			<-l.stopCh
-			l.log.DEBUG(l.NameApp + ": stop chan")
+			l.log.Debug(l.NameApp + ": stop chan")
 			close(waitCh)
 		}()
 
@@ -159,60 +141,60 @@ func (l *Listener) Start(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				l.log.DEBUG(l.NameApp + ": Stopping...")
+				l.log.Debug(l.NameApp + ": Stopping...")
 				l.WavCh <- outputFile.buf.Bytes()
 				break waitLoop
 
 			case <-waitCh:
-				l.log.DEBUG(l.NameApp + ": Stopping...")
+				l.log.Debug(l.NameApp + ": Stopping...")
 				l.WavCh <- outputFile.buf.Bytes()
 				break waitLoop
 
 			//отрезаем по таймауту
 			case <-delay.C:
-				l.log.DEBUG(l.NameApp + ": step delay...")
+				l.log.Debug(l.NameApp + ": step delay...")
 				outputWav.Close()
 				outputFile.Close()
-				l.log.DEBUG(l.NameApp+": step delay 1 ...", "size buf", strconv.Itoa(outputFile.buf.Len()))
+				l.log.Debug(l.NameApp+": step delay 1 ...", zap.Int("size buf", outputFile.buf.Len()))
 				l.WavCh <- outputFile.buf.Bytes()
-				l.log.DEBUG(l.NameApp + ": step delay 1 writed to wav chanel")
-				l.log.DEBUG(l.NameApp + ": step delay 2...")
+				l.log.Debug(l.NameApp + ": step delay 1 writed to wav chanel")
+				l.log.Debug(l.NameApp + ": step delay 2...")
 				outputFile = &WriterSeeker{}
 				outputWav = wav.NewEncoder(outputFile, pvrecorder.SampleRate, l.BitDepth, l.NumChans, 1)
-				l.log.DEBUG(l.NameApp + ": ...stop step delay 2")
+				l.log.Debug(l.NameApp + ": ...stop step delay 2")
 
 			//отрезаем кусок по команде
 			case <-l.sliceCh:
-				l.log.DEBUG(l.NameApp+": listener", "slice record")
-				l.log.DEBUG(l.NameApp + ": step slice...")
+				l.log.Debug(l.NameApp + ": listener slice record")
+				l.log.Debug(l.NameApp + ": step slice...")
 				outputWav.Close()
 				outputFile.Close()
-				l.log.DEBUG(l.NameApp+": step slice 1...", "size buf", strconv.Itoa(outputFile.buf.Len()))
+				l.log.Debug(l.NameApp+": step slice 1...", zap.Int("size buf", outputFile.buf.Len()))
 				l.WavCh <- outputFile.buf.Bytes()
-				l.log.DEBUG(l.NameApp + ": step slice 1 writed to wav chanel")
-				l.log.DEBUG(l.NameApp + ": step slice 2...")
+				l.log.Debug(l.NameApp + ": step slice 1 writed to wav chanel")
+				l.log.Debug(l.NameApp + ": step slice 2...")
 				outputFile = &WriterSeeker{}
 				outputWav = wav.NewEncoder(outputFile, pvrecorder.SampleRate, l.BitDepth, l.NumChans, 1)
-				l.log.DEBUG(l.NameApp + ": ...stop step slice 2")
+				l.log.Debug(l.NameApp + ": ...stop step slice 2")
 
 			default:
 				pcm, err := recorder.Read()
 				if err != nil {
-					l.log.ERROR(fmt.Sprintf(l.NameApp+": Error: %s.\n", err.Error()))
+					l.log.Error(fmt.Sprintf(l.NameApp, zap.Error(err)))
 					recorder = CreateRecorder(l.DeviceId)
 				}
 				if outputWav != nil {
 					for _, f := range pcm {
 						err := outputWav.WriteFrame(f)
 						if err != nil {
-							l.log.ERROR(err.Error())
+							l.log.Error("error", zap.Error(err))
 						}
 					}
 				}
 			}
 		}
 
-		l.log.INFO(l.NameApp + ": Stop listener")
+		l.log.Info(l.NameApp + ": Stop listener")
 	}()
 }
 
