@@ -13,7 +13,7 @@ import (
 	"time"
 
 	v "github.com/itchyny/volume-go"
-	smarthome "github.com/playmixer/corvid/v1/smart-home"
+	smarthome "github.com/playmixer/corvid/smart-home"
 	"go.uber.org/zap"
 )
 

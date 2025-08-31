@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/playmixer/corvid/v1/smarty"
+	"github.com/playmixer/corvid/smarty"
 )
 
 var (

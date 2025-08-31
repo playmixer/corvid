@@ -1,4 +1,4 @@
-module github.com/playmixer/corvid/v1
+module github.com/playmixer/corvid
 
 go 1.23.0
 

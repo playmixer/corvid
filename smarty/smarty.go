@@ -16,7 +16,7 @@ import (
 	"time"
 
 	fuzzy "github.com/paul-mannino/go-fuzzywuzzy"
-	"github.com/playmixer/corvid/v1/listen"
+	"github.com/playmixer/corvid/listen"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 )

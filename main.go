@@ -8,8 +8,8 @@ import (
 
 	logger "github.com/playmixer/corvid/logger/v2"
 
-	"github.com/playmixer/corvid/v1/smarty"
-	voskclient "github.com/playmixer/corvid/v1/vosk-client"
+	"github.com/playmixer/corvid/smarty"
+	voskclient "github.com/playmixer/corvid/vosk-client"
 )
 
 func main() {
